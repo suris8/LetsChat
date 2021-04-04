@@ -2,18 +2,27 @@ package edu.neu.madcourse.letschat;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.recyclerview.widget.DividerItemDecoration;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import android.app.Dialog;
 import android.content.Intent;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.Log;
+import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageView;
+import android.widget.TextView;
 
+import com.firebase.ui.firestore.FirestoreRecyclerAdapter;
+import com.firebase.ui.firestore.FirestoreRecyclerOptions;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.gms.tasks.Task;
@@ -27,12 +36,17 @@ import com.google.firebase.firestore.QuerySnapshot;
 
 import java.util.HashMap;
 
+import edu.neu.madcourse.letschat.model.Friend;
+
 public class MainActivity extends AppCompatActivity {
     private FirebaseAuth mAuth;
     private FirebaseAuth.AuthStateListener mAuthListener;
     private FloatingActionButton fabAdd;
     private FirebaseFirestore db;
     private String uid;
+    private RecyclerView rvFriend;
+    private LinearLayoutManager mLayoutManager;
+    private FirestoreRecyclerAdapter<Friend, FriendViewHolder> adapter;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -63,6 +77,39 @@ public class MainActivity extends AppCompatActivity {
         // get logged in user
         FirebaseUser currentUser = mAuth.getCurrentUser();
         uid = currentUser.getUid();
+
+        rvFriend = findViewById(R.id.rvFriend);
+
+        mLayoutManager = new LinearLayoutManager(this);
+        mLayoutManager.setReverseLayout(true);
+        mLayoutManager.setStackFromEnd(true);
+
+        DividerItemDecoration dividerItemDecoration = new DividerItemDecoration(rvFriend.getContext(), mLayoutManager.getOrientation());
+        rvFriend.addItemDecoration(dividerItemDecoration);
+        rvFriend.setHasFixedSize(true);
+        rvFriend.setLayoutManager(mLayoutManager);
+
+        FirestoreRecyclerOptions<Friend> options = new FirestoreRecyclerOptions.Builder<Friend>()
+                .setQuery(db.collection("user").document(uid).collection("friend"),Friend.class)
+                .build();
+
+        adapter = new FirestoreRecyclerAdapter<Friend, FriendViewHolder>(options) {
+            @Override
+            protected void onBindViewHolder(@NonNull FriendViewHolder holder, int position, @NonNull Friend model) {
+                String uidFriend = getSnapshots().getSnapshot(position).getId();
+                holder.setList(uidFriend);
+            }
+
+            @NonNull
+            @Override
+            public FriendViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+                View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.list_friend, parent, false);
+                return new FriendViewHolder(view);
+            }
+        };
+
+        rvFriend.setAdapter(adapter);
+        adapter.startListening();
 
         fabAdd = findViewById(R.id.fabAdd);
         // set on click listener on fab
@@ -134,6 +181,33 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         });
+    }
+
+    public class FriendViewHolder extends RecyclerView.ViewHolder{
+        View mView;
+        ImageView imgProfile;
+        TextView txtName;
+        public FriendViewHolder(View itemView) {
+            super(itemView);
+            mView = itemView;
+            imgProfile = mView.findViewById(R.id.imgProfile);
+            txtName = mView.findViewById(R.id.txtName);
+        }
+
+        public void setList(String uidFriend){
+            db.collection("user").document(uidFriend).get().addOnCompleteListener(new OnCompleteListener<DocumentSnapshot>() {
+                @Override
+                public void onComplete(@NonNull Task<DocumentSnapshot> task) {
+                    if (task.isSuccessful()) {
+                        DocumentSnapshot documentSnapshot = task.getResult();
+                        if (documentSnapshot.exists()){
+                            String name = documentSnapshot.get("name", String.class);
+                            txtName.setText(name);
+                        }
+                    }
+                }
+            });
+        }
     }
 
     private void createNewChatRoom(final String uidFriend) {

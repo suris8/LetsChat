@@ -41,4 +41,5 @@ dependencies {
     implementation 'com.google.firebase:firebase-auth'
     implementation 'com.google.firebase:firebase-analytics'
     implementation 'com.google.firebase:firebase-firestore:22.1.2'
+    implementation 'com.firebaseui:firebase-ui-firestore:6.3.0'
 }
