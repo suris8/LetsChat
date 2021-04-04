@@ -15,14 +15,21 @@ import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
 import com.google.firebase.auth.AuthResult;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.firestore.FirebaseFirestore;
+
+import java.util.HashMap;
+import java.util.Random;
 
 public class RegisterActivity extends AppCompatActivity {
 
-    private EditText edtEmail, edtPassword;
+    private EditText edtEmail, edtPassword, edtName;
     private Button btnRegister;
     private FirebaseAuth mAuth;
     private String email;
     private String password;
+    private String name;
+    private FirebaseFirestore db;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -31,29 +38,46 @@ public class RegisterActivity extends AppCompatActivity {
 
         edtEmail = (EditText) findViewById(R.id.editEmail);
         edtPassword = (EditText) findViewById(R.id.editPassword);
+        edtName = (EditText) findViewById(R.id.editName);
         btnRegister = (Button) findViewById(R.id.btnRegister);
 
         mAuth = FirebaseAuth.getInstance();
+        db = FirebaseFirestore.getInstance();
 
         btnRegister.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 email = edtEmail.getText().toString().trim();
                 password = edtPassword.getText().toString().trim();
+                name = edtName.getText().toString().trim();
 
                 if (TextUtils.isEmpty(email)) {
                     edtEmail.setText("can't be empty");
                 } else if (TextUtils.isEmpty(password)){
                     edtPassword.setText("can't be empty");
+                } else if (TextUtils.isEmpty(name)){
+                    edtName.setText("can't be empty");
                 } else {
                     mAuth.createUserWithEmailAndPassword(email,password).addOnCompleteListener(new OnCompleteListener<AuthResult>() {
                         @Override
                         public void onComplete(@NonNull Task<AuthResult> task) {
                             if (task.isSuccessful()){
-                                Intent i = new Intent(RegisterActivity.this,MainActivity.class);
-                                i.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK);
-                                startActivity(i);
-                                finish();
+                                FirebaseUser currentUser = mAuth.getCurrentUser();
+                                String uid = currentUser.getUid();
+
+                                HashMap<String, Object> dataUser = new HashMap<>();
+                                dataUser.put("name", name);
+                                dataUser.put("id",getRandomString(6));
+
+                                db.collection("user").document(uid).set(dataUser).addOnCompleteListener(new OnCompleteListener<Void>() {
+                                    @Override
+                                    public void onComplete(@NonNull Task<Void> task) {
+                                        Intent i = new Intent(RegisterActivity.this,MainActivity.class);
+                                        i.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK);
+                                        startActivity(i);
+                                        finish();
+                                    }
+                                });
                             } else {
                                 Toast.makeText(RegisterActivity.this, "Register Failed", Toast.LENGTH_SHORT).show();
                             }
@@ -62,5 +86,16 @@ public class RegisterActivity extends AppCompatActivity {
                 }
             }
         });
+    }
+
+    private String getRandomString(int i){
+        String characters = "abcdefghijklmnopqrstuvwxyz1234567890";
+        StringBuilder result = new StringBuilder();
+        while (i > 0){
+            Random rand = new Random();
+            result.append(characters.charAt(rand.nextInt(characters.length())));
+            i--;
+        }
+        return result.toString();
     }
 }
