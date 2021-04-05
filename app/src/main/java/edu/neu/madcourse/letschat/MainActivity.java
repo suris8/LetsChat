@@ -29,6 +29,7 @@ import com.google.android.gms.tasks.Task;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
@@ -47,6 +48,7 @@ public class MainActivity extends AppCompatActivity {
     private RecyclerView rvFriend;
     private LinearLayoutManager mLayoutManager;
     private FirestoreRecyclerAdapter<Friend, FriendViewHolder> adapter;
+    private String TAG = "MainActivity";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -78,6 +80,7 @@ public class MainActivity extends AppCompatActivity {
         FirebaseUser currentUser = mAuth.getCurrentUser();
         uid = currentUser.getUid();
 
+        // get RecyclerView
         rvFriend = findViewById(R.id.rvFriend);
 
         mLayoutManager = new LinearLayoutManager(this);
@@ -89,15 +92,64 @@ public class MainActivity extends AppCompatActivity {
         rvFriend.setHasFixedSize(true);
         rvFriend.setLayoutManager(mLayoutManager);
 
+        // Get all friends from user
         FirestoreRecyclerOptions<Friend> options = new FirestoreRecyclerOptions.Builder<Friend>()
                 .setQuery(db.collection("user").document(uid).collection("friend"),Friend.class)
                 .build();
 
+        // set the friend to the holder
         adapter = new FirestoreRecyclerAdapter<Friend, FriendViewHolder>(options) {
             @Override
             protected void onBindViewHolder(@NonNull FriendViewHolder holder, int position, @NonNull Friend model) {
                 String uidFriend = getSnapshots().getSnapshot(position).getId();
                 holder.setList(uidFriend);
+
+                // if someone clicks on the specific friend's name in the recyclerView -- NEED
+                holder.mView.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View view) {
+/*                        db.collection("user").document(uid).collection("friend").document(uidFriend).get().addOnCompleteListener(new OnCompleteListener<DocumentSnapshot>() {
+                            @Override
+                            public void onComplete(@NonNull Task<DocumentSnapshot> task) {
+                                if (task.isSuccessful()){
+                                    DocumentSnapshot documentSnapshot = task.getResult();
+                                    if (documentSnapshot.exists()){
+                                        String idChatRoom = documentSnapshot.get("idChatRoom", String.class);
+                                        Log.i("chat room id is", idChatRoom);
+                                        //goChatRoom(idChatRoom, uidFriend);
+                                    } else {
+                                        Log.i("hello", "creating chat room");
+                                        createNewChatRoom(uidFriend);
+                                    }
+                                }
+                            }
+                        });*/
+
+                        Log.i("personal uid", uid);
+                        Log.i("friend uid", uidFriend);
+
+                        DocumentReference docRef = db.collection("user").document(uid).collection("friend").document(uidFriend);
+
+                        docRef.get().addOnCompleteListener(new OnCompleteListener<DocumentSnapshot>() {
+                            @Override
+                            public void onComplete(@NonNull Task<DocumentSnapshot> task) {
+                                if (task.isSuccessful()) {
+                                    DocumentSnapshot document = task.getResult();
+                                    if (document.exists()) {
+                                        Log.d(TAG, "DocumentSnapshot data: " + document.getData());
+                                        goChatRoom(document.getString("idChatRoom"), uidFriend);
+                                    } else {
+                                        Log.d(TAG, "No such document");
+                                    }
+                                } else {
+                                    Log.d(TAG, "get failed with ", task.getException());
+                                }
+                            }
+                        });
+                        //Log.i("uid is", uidFriend.toString());
+                        //goChatRoom(model.getIdChatRoom(), uidFriend);
+                    }
+                });
             }
 
             @NonNull
@@ -226,7 +278,7 @@ public class MainActivity extends AppCompatActivity {
                     public void onSuccess(Void aVoid) {
                         // write on user's friend data
                         HashMap<String, Object> dataUserFriend = new HashMap<>();
-                        dataFriend.put("idChatRoom",uid+uidFriend);
+                        dataUserFriend.put("idChatRoom",uid+uidFriend);
                         // add a friend collection to user and add the chatroom id to it
                         db.collection("user").document(uidFriend).collection("friend").document(uid).set(dataUserFriend).addOnSuccessListener(new OnSuccessListener<Void>() {
                             @Override
@@ -240,7 +292,16 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
+    // Go to specific chat room based on chat room id
     private void goChatRoom(String idChatRoom, String uidFriend) {
+        Intent i = new Intent(MainActivity.this,ChatActivity.class);
+        // sending chat room id to next activity
+        i.putExtra("idChatRoom", idChatRoom);
+        //Log.i("The chatroom id is: ", idChatRoom.toString());
+        // sending friend uid to next activity
+        i.putExtra("uidFriend", uidFriend);
+        //Log.i("The  uid is: ", uidFriend);
+        startActivity(i);
     }
 
     @Override
